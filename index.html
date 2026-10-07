@@ -67,7 +67,17 @@
     nav.open { transform: none; box-shadow: 0 0 30px rgba(0,0,0,.3); }
     h1 { font-size: 28px; }
   }
+  .toc a { padding: 3px 10px 3px 22px; font-size: 13px; color: var(--muted); }
+  .toc a:hover { color: var(--text); }
+  main table { border-collapse: collapse; display: block; overflow-x: auto; margin: 12px 0; font-size: 14px; }
+  main th, main td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  main th { background: var(--code-bg); }
+  main blockquote { margin: 0 0 16px; padding: 4px 16px; border-left: 4px solid var(--accent); color: var(--muted); }
+  main h2, main h3 { scroll-margin-top: 70px; }
+  pre code.hljs { padding: 0; background: none; }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 </head>
 <body>
 <header>
@@ -96,6 +106,8 @@
 </form>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script>
 // ===== Supabase config — paste your values here =====
 const SUPABASE_URL = 'https://jzjsjlracxjjsegvxhms.supabase.co';        // e.g. https://abcd1234.supabase.co
@@ -103,301 +115,34 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const BUCKET = 'review-files';
 const TABLE = 'reviews';
 
-// ===== Documentation content =====
+// ===== Documentation index (full docs live in docs/<id>.md) =====
 const LIBS = [
-{ id:'numpy', name:'NumPy', cat:'Data & Math', tag:'The fundamental package for N-dimensional arrays and numerical computing in Python.',
-  install:'pip install numpy', url:'https://numpy.org/doc/stable/',
-  overview:'NumPy provides the <code>ndarray</code>, a fast, fixed-type, multi-dimensional array, plus vectorized math, broadcasting, linear algebra and random number generation. Nearly every ML library is built on top of it.',
-  concepts:[['ndarray','Homogeneous n-dimensional array with a <code>shape</code>, <code>dtype</code> and <code>strides</code>.'],
-    ['Vectorization','Operations apply element-wise in compiled C — avoid Python loops.'],
-    ['Broadcasting','Arrays of different shapes are combined by stretching size-1 dimensions, e.g. <code>(3,1) + (1,4) → (3,4)</code>.'],
-    ['Indexing','Slicing returns views; boolean masks and integer arrays (fancy indexing) return copies.'],
-    ['np.random.Generator','Modern RNG API: <code>rng = np.random.default_rng(seed)</code>.']],
-  examples:[['Arrays and broadcasting',`import numpy as np
-
-a = np.arange(12).reshape(3, 4)     # shape (3, 4)
-col_means = a.mean(axis=0)          # shape (4,)
-centered = a - col_means            # broadcasting
-print(centered[a > 5])              # boolean mask`],
-    ['Linear algebra',`A = np.array([[3, 1], [1, 2]])
-b = np.array([9, 8])
-x = np.linalg.solve(A, b)           # solve Ax = b
-w, v = np.linalg.eig(A)             # eigenvalues / vectors
-rng = np.random.default_rng(42)
-X = rng.normal(size=(100, 3))`]]},
-
-{ id:'pandas', name:'pandas', cat:'Data & Math', tag:'Fast, flexible data structures for tabular and time-series data.',
-  install:'pip install pandas', url:'https://pandas.pydata.org/docs/',
-  overview:'pandas offers the <code>DataFrame</code> (a labeled 2-D table) and <code>Series</code> (a labeled 1-D array). It handles reading/writing CSV, Excel, SQL and Parquet, cleaning, joining, grouping and reshaping data.',
-  concepts:[['DataFrame / Series','Labeled columns and an index; each column is a Series with its own dtype.'],
-    ['Selection','<code>df.loc[rows, cols]</code> by label, <code>df.iloc[i, j]</code> by position.'],
-    ['GroupBy','Split-apply-combine: <code>df.groupby("key").agg(...)</code>.'],
-    ['Merge / Join','SQL-style joins with <code>pd.merge(left, right, on=..., how=...)</code>.'],
-    ['Missing data','<code>isna()</code>, <code>fillna()</code>, <code>dropna()</code>.']],
-  examples:[['Load, clean, aggregate',`import pandas as pd
-
-df = pd.read_csv("sales.csv", parse_dates=["date"])
-df = df.dropna(subset=["amount"])
-df["month"] = df["date"].dt.to_period("M")
-
-summary = (df.groupby(["region", "month"])["amount"]
-             .agg(["sum", "mean", "count"])
-             .reset_index())
-summary.to_excel("summary.xlsx", index=False)`],
-    ['Joins and pivots',`orders = pd.merge(orders, customers, on="customer_id", how="left")
-pivot = orders.pivot_table(index="region", columns="product",
-                           values="amount", aggfunc="sum", fill_value=0)`]]},
-
-{ id:'matplotlib', name:'Matplotlib', cat:'Visualization', tag:'Comprehensive library for static, animated and interactive plots.',
-  install:'pip install matplotlib', url:'https://matplotlib.org/stable/',
-  overview:'Matplotlib is the base plotting layer of the Python ecosystem. Use the object-oriented API (<code>fig, ax = plt.subplots()</code>) for full control.',
-  concepts:[['Figure & Axes','A Figure holds one or more Axes; each Axes is a single plot.'],
-    ['Plot types','<code>plot</code>, <code>scatter</code>, <code>bar</code>, <code>hist</code>, <code>imshow</code>, <code>boxplot</code>…'],
-    ['Styling','<code>plt.style.use("ggplot")</code>, labels, legends, <code>tight_layout()</code>.'],
-    ['Saving','<code>fig.savefig("plot.png", dpi=200)</code>.']],
-  examples:[['Training curves',`import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(figsize=(7, 4))
-ax.plot(train_loss, label="train")
-ax.plot(val_loss, label="validation")
-ax.set(xlabel="epoch", ylabel="loss", title="Learning curve")
-ax.legend()
-fig.tight_layout()
-fig.savefig("loss.png", dpi=200)`]]},
-
-{ id:'seaborn', name:'Seaborn', cat:'Visualization', tag:'Statistical data visualization built on Matplotlib and pandas.',
-  install:'pip install seaborn', url:'https://seaborn.pydata.org/',
-  overview:'Seaborn produces attractive statistical charts directly from DataFrames with sensible defaults — distributions, relationships, categorical comparisons and heatmaps.',
-  concepts:[['Figure-level vs axes-level','<code>relplot/displot/catplot</code> create a whole figure; <code>scatterplot/histplot</code> draw on one Axes.'],
-    ['Semantic mappings','<code>hue</code>, <code>size</code>, <code>style</code> map columns to visual properties.'],
-    ['Themes','<code>sns.set_theme(style="whitegrid")</code>.']],
-  examples:[['EDA in a few lines',`import seaborn as sns
-sns.set_theme(style="whitegrid")
-
-df = sns.load_dataset("penguins")
-sns.pairplot(df, hue="species")
-sns.heatmap(df.corr(numeric_only=True), annot=True, cmap="vlag")
-sns.boxplot(data=df, x="species", y="body_mass_g")`]]},
-
-{ id:'scipy', name:'SciPy', cat:'Data & Math', tag:'Algorithms for optimization, integration, statistics, signal processing and more.',
-  install:'pip install scipy', url:'https://docs.scipy.org/doc/scipy/',
-  overview:'SciPy builds on NumPy with scientific routines organized in submodules: <code>optimize</code>, <code>stats</code>, <code>sparse</code>, <code>linalg</code>, <code>signal</code>, <code>interpolate</code>, <code>integrate</code>, <code>spatial</code>.',
-  concepts:[['scipy.optimize','Minimization, root finding, curve fitting.'],
-    ['scipy.stats','Distributions, hypothesis tests, descriptive statistics.'],
-    ['scipy.sparse','Sparse matrices (CSR/CSC) used heavily for text features.']],
-  examples:[['Optimize and test',`import numpy as np
-from scipy import optimize, stats
-
-res = optimize.minimize(lambda x: (x[0]-3)**2 + (x[1]+1)**2, x0=[0, 0])
-print(res.x)                     # ≈ [3, -1]
-
-t, p = stats.ttest_ind(group_a, group_b)
-print(f"t={t:.2f}, p={p:.4f}")`]]},
-
-{ id:'sklearn', name:'scikit-learn', cat:'Classical ML', tag:'Simple, efficient tools for predictive data analysis.',
-  install:'pip install scikit-learn', url:'https://scikit-learn.org/stable/',
-  overview:'scikit-learn offers a consistent API for classification, regression, clustering, dimensionality reduction, preprocessing, model selection and evaluation. Every model follows <code>fit</code> / <code>predict</code> / <code>transform</code>.',
-  concepts:[['Estimator API','<code>model.fit(X, y)</code>, <code>model.predict(X)</code>, <code>model.score(X, y)</code>.'],
-    ['Pipeline','Chains preprocessing + model so transforms are fit only on training folds (prevents leakage).'],
-    ['ColumnTransformer','Different preprocessing per column type (numeric vs categorical).'],
-    ['Model selection','<code>train_test_split</code>, <code>cross_val_score</code>, <code>GridSearchCV</code>.'],
-    ['Metrics','<code>accuracy_score</code>, <code>f1_score</code>, <code>roc_auc_score</code>, <code>mean_squared_error</code>…']],
-  examples:[['End-to-end pipeline',`from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report
-
-pre = ColumnTransformer([
-    ("num", StandardScaler(), ["age", "income"]),
-    ("cat", OneHotEncoder(handle_unknown="ignore"), ["city"]),
-])
-pipe = Pipeline([("pre", pre), ("clf", RandomForestClassifier(random_state=0))])
-
-X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y)
-search = GridSearchCV(pipe, {"clf__n_estimators": [100, 300],
-                             "clf__max_depth": [None, 10]}, cv=5)
-search.fit(X_tr, y_tr)
-print(classification_report(y_te, search.predict(X_te)))`]]},
-
-{ id:'statsmodels', name:'statsmodels', cat:'Classical ML', tag:'Statistical models, hypothesis tests and time-series analysis.',
-  install:'pip install statsmodels', url:'https://www.statsmodels.org/stable/',
-  overview:'statsmodels focuses on statistical inference: regression with full summary tables (coefficients, p-values, confidence intervals), GLMs, and time-series models such as ARIMA and SARIMAX.',
-  concepts:[['Formula API','R-style formulas: <code>smf.ols("y ~ x1 + C(group)", data=df)</code>.'],
-    ['GLM','Logistic, Poisson and other families.'],
-    ['Time series','<code>ARIMA</code>, <code>SARIMAX</code>, seasonal decomposition, stationarity tests.']],
-  examples:[['Regression and forecasting',`import statsmodels.formula.api as smf
-from statsmodels.tsa.arima.model import ARIMA
-
-ols = smf.ols("price ~ sqft + C(neighborhood)", data=df).fit()
-print(ols.summary())
-
-model = ARIMA(series, order=(1, 1, 1)).fit()
-forecast = model.forecast(steps=12)`]]},
-
-{ id:'xgboost', name:'XGBoost', cat:'Gradient Boosting', tag:'Optimized, scalable gradient-boosted decision trees.',
-  install:'pip install xgboost', url:'https://xgboost.readthedocs.io/',
-  overview:'XGBoost is a high-performance gradient boosting library and a go-to for tabular data. It offers a scikit-learn-compatible API, GPU training, native missing-value handling and early stopping.',
-  concepts:[['Boosting','Trees are added sequentially, each fitting the residual errors of the ensemble.'],
-    ['Key params','<code>n_estimators</code>, <code>learning_rate</code>, <code>max_depth</code>, <code>subsample</code>, <code>colsample_bytree</code>, <code>reg_lambda</code>.'],
-    ['Early stopping','Stop when the validation metric stops improving.'],
-    ['GPU','<code>device="cuda"</code>.']],
-  examples:[['Classifier with early stopping',`from xgboost import XGBClassifier
-
-model = XGBClassifier(n_estimators=2000, learning_rate=0.05, max_depth=6,
-                      subsample=0.8, colsample_bytree=0.8,
-                      eval_metric="auc", early_stopping_rounds=50)
-model.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=100)
-proba = model.predict_proba(X_te)[:, 1]`]]},
-
-{ id:'lightgbm', name:'LightGBM', cat:'Gradient Boosting', tag:'Fast, memory-efficient gradient boosting by Microsoft.',
-  install:'pip install lightgbm', url:'https://lightgbm.readthedocs.io/',
-  overview:'LightGBM uses histogram-based, leaf-wise tree growth, making it very fast on large datasets. It supports categorical features natively.',
-  concepts:[['Leaf-wise growth','Grows the leaf with the largest loss reduction; control with <code>num_leaves</code>.'],
-    ['Categoricals','Pass pandas <code>category</code> dtype columns directly.'],
-    ['Callbacks','<code>lgb.early_stopping()</code>, <code>lgb.log_evaluation()</code>.']],
-  examples:[['Regressor',`import lightgbm as lgb
-
-model = lgb.LGBMRegressor(n_estimators=5000, learning_rate=0.03, num_leaves=63)
-model.fit(X_tr, y_tr, eval_set=[(X_val, y_val)],
-          callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)])
-preds = model.predict(X_te)`]]},
-
-{ id:'catboost', name:'CatBoost', cat:'Gradient Boosting', tag:'Gradient boosting with first-class categorical feature support, by Yandex.',
-  install:'pip install catboost', url:'https://catboost.ai/docs/',
-  overview:'CatBoost handles categorical features without manual encoding (using ordered target statistics), uses symmetric trees, and gives strong results with default parameters.',
-  concepts:[['cat_features','List of categorical column names/indices — no one-hot needed.'],
-    ['Ordered boosting','Reduces target leakage and overfitting.'],
-    ['Pool','Data container bundling features, labels and categorical info.']],
-  examples:[['Classifier with raw categoricals',`from catboost import CatBoostClassifier
-
-model = CatBoostClassifier(iterations=1000, learning_rate=0.05, depth=6, verbose=200)
-model.fit(X_tr, y_tr, cat_features=["city", "device"],
-          eval_set=(X_val, y_val), early_stopping_rounds=100)
-print(model.get_feature_importance(prettified=True))`]]},
-
-{ id:'tensorflow', name:'TensorFlow', cat:'Deep Learning', tag:'End-to-end open-source platform for machine learning by Google.',
-  install:'pip install tensorflow', url:'https://www.tensorflow.org/api_docs',
-  overview:'TensorFlow provides tensors, automatic differentiation, the <code>tf.data</code> input pipeline, distributed training and deployment tools (TF Serving, TFLite, TF.js). Keras is its high-level API.',
-  concepts:[['Tensors','Immutable multi-dimensional arrays that run on CPU/GPU/TPU.'],
-    ['tf.function','Compiles Python functions into fast graphs.'],
-    ['GradientTape','Records operations for automatic differentiation.'],
-    ['tf.data','Efficient, streaming input pipelines: <code>map</code>, <code>batch</code>, <code>prefetch</code>.']],
-  examples:[['Custom training step',`import tensorflow as tf
-
-ds = tf.data.Dataset.from_tensor_slices((X, y)).shuffle(1000).batch(32).prefetch(tf.data.AUTOTUNE)
-opt = tf.keras.optimizers.Adam(1e-3)
-loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-
-@tf.function
-def train_step(x, y):
-    with tf.GradientTape() as tape:
-        loss = loss_fn(y, model(x, training=True))
-    grads = tape.gradient(loss, model.trainable_variables)
-    opt.apply_gradients(zip(grads, model.trainable_variables))
-    return loss`]]},
-
-{ id:'keras', name:'Keras', cat:'Deep Learning', tag:'High-level, multi-backend deep learning API (TensorFlow, JAX, PyTorch).',
-  install:'pip install keras', url:'https://keras.io/api/',
-  overview:'Keras 3 lets you define and train neural networks with very little code, and runs on TensorFlow, JAX or PyTorch backends. Models are built with the Sequential API, Functional API or subclassing.',
-  concepts:[['Sequential / Functional','Stack layers linearly, or build graphs with multiple inputs/outputs.'],
-    ['compile / fit','Set optimizer, loss and metrics, then train with <code>model.fit()</code>.'],
-    ['Callbacks','<code>EarlyStopping</code>, <code>ModelCheckpoint</code>, <code>ReduceLROnPlateau</code>.'],
-    ['Backend','Set <code>KERAS_BACKEND=jax|tensorflow|torch</code>.']],
-  examples:[['Image classifier',`import keras
-from keras import layers
-
-model = keras.Sequential([
-    keras.Input(shape=(28, 28, 1)),
-    layers.Conv2D(32, 3, activation="relu"),
-    layers.MaxPooling2D(),
-    layers.Flatten(),
-    layers.Dropout(0.3),
-    layers.Dense(10, activation="softmax"),
-])
-model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-model.fit(x_train, y_train, epochs=10, validation_split=0.1,
-          callbacks=[keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True)])`]]},
-
-{ id:'pytorch', name:'PyTorch', cat:'Deep Learning', tag:'Tensors and dynamic neural networks with strong GPU acceleration, by Meta.',
-  install:'pip install torch torchvision', url:'https://pytorch.org/docs/stable/',
-  overview:'PyTorch is the most widely used deep learning framework in research. It offers eager execution, autograd, <code>nn.Module</code> for models, <code>DataLoader</code> for batching, and <code>torch.compile</code> for speed.',
-  concepts:[['Tensor & device','<code>x.to("cuda")</code> moves data to GPU.'],
-    ['Autograd','<code>loss.backward()</code> computes gradients for tensors with <code>requires_grad=True</code>.'],
-    ['nn.Module','Define layers in <code>__init__</code>, computation in <code>forward</code>.'],
-    ['Dataset / DataLoader','Index-based data access + batching, shuffling, multiprocessing.'],
-    ['train / eval modes','<code>model.train()</code> vs <code>model.eval()</code> with <code>torch.no_grad()</code>.']],
-  examples:[['Training loop',`import torch
-from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = nn.Sequential(nn.Linear(20, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
-loss_fn = nn.CrossEntropyLoss()
-loader = DataLoader(TensorDataset(X, y), batch_size=64, shuffle=True)
-
-for epoch in range(10):
-    model.train()
-    for xb, yb in loader:
-        xb, yb = xb.to(device), yb.to(device)
-        opt.zero_grad()
-        loss = loss_fn(model(xb), yb)
-        loss.backward()
-        opt.step()
-    print(epoch, loss.item())
-
-torch.save(model.state_dict(), "model.pt")`]]},
-
-{ id:'jax', name:'JAX', cat:'Deep Learning', tag:'Composable transformations of NumPy programs: grad, jit, vmap, pmap — by Google.',
-  install:'pip install jax', url:'https://jax.readthedocs.io/',
-  overview:'JAX is NumPy on accelerators plus function transformations. It is pure-functional: state (parameters, RNG keys) is passed explicitly. Neural-network libraries such as Flax and Optax build on it.',
-  concepts:[['jax.numpy','Drop-in NumPy API that runs on GPU/TPU.'],
-    ['grad','Returns a function computing the gradient.'],
-    ['jit','XLA-compiles a function for speed.'],
-    ['vmap','Auto-vectorizes a function over a batch dimension.'],
-    ['PRNG keys','<code>key = jax.random.key(0)</code>; split keys instead of global state.']],
-  examples:[['Linear regression by gradient descent',`import jax, jax.numpy as jnp
-
-def loss(w, X, y):
-    return jnp.mean((X @ w - y) ** 2)
-
-grad_fn = jax.jit(jax.grad(loss))
-w = jnp.zeros(X.shape[1])
-for _ in range(500):
-    w = w - 0.1 * grad_fn(w, X, y)`]]},
-
-{ id:'transformers', name:'Hugging Face Transformers', cat:'NLP & LLMs', tag:'Pretrained models for text, vision and audio — thousands on the Hub.',
-  install:'pip install transformers datasets', url:'https://huggingface.co/docs/transformers/',
-  overview:'Transformers gives access to state-of-the-art pretrained models (BERT, Llama, Mistral, ViT, Whisper…). Use <code>pipeline</code> for quick inference, <code>AutoModel</code>/<code>AutoTokenizer</code> for control, and <code>Trainer</code> for fine-tuning.',
-  concepts:[['pipeline','One-line inference for common tasks (sentiment, NER, summarization, generation…).'],
-    ['Auto classes','<code>AutoTokenizer</code>, <code>AutoModelForSequenceClassification</code>, <code>AutoModelForCausalLM</code>.'],
-    ['Tokenizer','Converts text to input IDs + attention masks.'],
-    ['Trainer','High-level training loop with evaluation, checkpointing and mixed precision.']],
-  examples:[['Quick inference',`from transformers import pipeline
-
-clf = pipeline("sentiment-analysis")
-print(clf("These docs are really helpful!"))
-
-gen = pipeline("text-generation", model="gpt2")
-print(gen("Machine learning is", max_new_tokens=30)[0]["generated_text"])`],
-    ['Fine-tuning',`from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset
-
-ds = load_dataset("imdb")
-tok = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-ds = ds.map(lambda b: tok(b["text"], truncation=True), batched=True)
-model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
-
-args = TrainingArguments("out", per_device_train_batch_size=16, num_train_epochs=2, eval_strategy="epoch")
-Trainer(model=model, args=args, train_dataset=ds["train"], eval_dataset=ds["test"],
-        processing_class=tok).train()`]]},
+  { id:'numpy',        name:'NumPy',                     cat:'Data & Math',       tag:'N-dimensional arrays and numerical computing.' },
+  { id:'pandas',       name:'pandas',                    cat:'Data & Math',       tag:'DataFrames for tabular and time-series data.' },
+  { id:'scipy',        name:'SciPy',                     cat:'Data & Math',       tag:'Optimization, statistics, sparse matrices, signal processing.' },
+  { id:'matplotlib',   name:'Matplotlib',                cat:'Visualization',     tag:'Static, animated and interactive plots.' },
+  { id:'seaborn',      name:'Seaborn',                   cat:'Visualization',     tag:'Statistical visualization on top of Matplotlib.' },
+  { id:'sklearn',      name:'scikit-learn',              cat:'Classical ML',      tag:'Classification, regression, clustering, pipelines, model selection.' },
+  { id:'statsmodels',  name:'statsmodels',               cat:'Classical ML',      tag:'Statistical models, inference and time series.' },
+  { id:'xgboost',      name:'XGBoost',                   cat:'Gradient Boosting', tag:'Scalable gradient-boosted decision trees.' },
+  { id:'lightgbm',     name:'LightGBM',                  cat:'Gradient Boosting', tag:'Fast, histogram-based gradient boosting.' },
+  { id:'catboost',     name:'CatBoost',                  cat:'Gradient Boosting', tag:'Gradient boosting with native categorical features.' },
+  { id:'tensorflow',   name:'TensorFlow',                cat:'Deep Learning',     tag:'End-to-end ML platform by Google.' },
+  { id:'keras',        name:'Keras',                     cat:'Deep Learning',     tag:'High-level, multi-backend deep learning API.' },
+  { id:'pytorch',      name:'PyTorch',                   cat:'Deep Learning',     tag:'Tensors and dynamic neural networks with GPU acceleration.' },
+  { id:'jax',          name:'JAX',                       cat:'Deep Learning',     tag:'Composable transformations: grad, jit, vmap.' },
+  { id:'transformers', name:'Hugging Face Transformers', cat:'NLP & LLMs',        tag:'Pretrained models for text, vision and audio.' },
 ];
 
 // ===== Rendering =====
 const $ = s => document.querySelector(s);
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const slug = s => s.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, '');
+const cache = {};
+let current = null, toc = '';
+
+// Hash format: #<lib> or #<lib>:<heading-id>
+const route = () => { const [lib, sec] = location.hash.slice(1).split(':'); return { lib, sec }; };
 
 function renderNav(filter = '') {
   const f = filter.toLowerCase();
@@ -405,35 +150,49 @@ function renderNav(filter = '') {
   for (const l of LIBS.filter(l => (l.name + l.cat + l.tag).toLowerCase().includes(f))) {
     if (l.cat !== cat) { cat = l.cat; html += `<small>${cat}</small>`; }
     html += `<a href="#${l.id}" data-id="${l.id}">${l.name}</a>`;
+    if (l.id === current) html += toc;
   }
   $('#navLinks').innerHTML = html || '<p style="color:var(--muted)">No match.</p>';
-  markActive();
+  document.querySelectorAll('#navLinks a[data-id]').forEach(a => a.classList.toggle('active', a.dataset.id === current));
 }
 
-function markActive() {
-  const id = location.hash.slice(1);
-  document.querySelectorAll('#navLinks a').forEach(a => a.classList.toggle('active', a.dataset.id === id));
-}
-
-function renderPage() {
-  const lib = LIBS.find(l => l.id === location.hash.slice(1));
+async function renderPage() {
+  const { lib: id, sec } = route();
+  const lib = LIBS.find(l => l.id === id);
   const main = $('#content');
+  $('#nav').classList.remove('open');
+
+  if (lib && id === current) return jumpTo(sec); // same page, just jump to section
+
+  current = lib ? id : null; toc = '';
   if (!lib) {
     main.innerHTML = `<h1>ML Docs Hub</h1>
-      <p class="tag">Concise, practical documentation for ${LIBS.length} popular machine learning libraries.</p>
+      <p class="tag">In-depth documentation for ${LIBS.length} popular machine learning libraries.</p>
       <div class="grid">${LIBS.map(l => `<a class="card" href="#${l.id}"><b>${l.name}</b><span>${l.tag}</span></a>`).join('')}</div>`;
-  } else {
-    main.innerHTML = `<h1>${lib.name}</h1>
-      <p class="tag">${lib.tag}</p>
-      <div class="meta"><span class="pill">${lib.cat}</span><a href="${lib.url}" target="_blank" rel="noopener">Official docs ↗</a></div>
-      <h2>Installation</h2><pre><code>${esc(lib.install)}</code></pre>
-      <h2>Overview</h2><p>${lib.overview}</p>
-      <h2>Key concepts</h2><dl>${lib.concepts.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>
-      <h2>Examples</h2>${lib.examples.map(([t, c]) => `<h3>${t}</h3><pre><code>${esc(c)}</code></pre>`).join('')}`;
+    renderNav($('#search').value); window.scrollTo(0, 0);
+    return;
   }
-  markActive();
-  window.scrollTo(0, 0);
-  $('#nav').classList.remove('open');
+
+  main.innerHTML = '<p class="tag">Loading…</p>';
+  try {
+    cache[id] ??= await fetch(`docs/${id}.md`).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); });
+  } catch {
+    main.innerHTML = `<h1>${lib.name}</h1><p class="tag">Couldn't load this page. Please refresh.</p>`;
+    return;
+  }
+  if (current !== id) return; // user navigated away while loading
+  main.innerHTML = marked.parse(cache[id]); // ponytail: our own trusted Markdown, so no sanitizer
+  main.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+  main.querySelectorAll('h2, h3').forEach(h => h.id = slug(h.textContent));
+  toc = '<div class="toc">' + [...main.querySelectorAll('h2')]
+    .map(h => `<a href="#${id}:${h.id}">${esc(h.textContent)}</a>`).join('') + '</div>';
+  renderNav($('#search').value);
+  jumpTo(sec);
+}
+
+function jumpTo(sec) {
+  const el = sec && document.getElementById(sec);
+  el ? el.scrollIntoView() : window.scrollTo(0, 0);
 }
 
 $('#search').addEventListener('input', e => renderNav(e.target.value));
